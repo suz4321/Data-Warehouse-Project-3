@@ -27,7 +27,7 @@
 ##### This will create all the necessary tables.
 
 #### Next type: python3 etl.py
-##### This will run the copy command to retrieve the data of the staging tables from an S3 bucket then populate the fact and dimension tables from the staging tabales.  This can take up to 20 minutes to complete.
+##### This will run the copy command to retrieve the data of the staging tables from an S3 bucket then populate the fact and dimension tables from the staging tabales.  Dimension tables contain data on songs, artists, users and time.  The fact table, songplays, is built from the dimension tables.  This can take up to 20 minutes to complete.
 
 #### Once the tables are populated, go into the Query Editor on https://console.aws.amazon.com/Redshift/ and verify the data is correct in all tables.
 
