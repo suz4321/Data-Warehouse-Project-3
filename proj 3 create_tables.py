@@ -24,7 +24,7 @@ def main():
 
     drop_tables(cur, conn)
     create_tables(cur, conn)
-    print('Create tables complete')
+    
     conn.close()
 
 if __name__ == "__main__":
