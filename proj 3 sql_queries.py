@@ -16,18 +16,19 @@ artist_table_drop = "DROP TABLE IF EXISTS artist_table"
 time_table_drop = "DROP TABLE IF EXISTS time_table"
 
 # CREATE TABLES
+# It is important to use the JSON key values for the column names in the create staging tables statement
 
 staging_songs_table_create= (""" CREATE TABLE IF NOT EXISTS staging_songs_table
-                                  ( artistId         VARCHAR,
-                                    latitude         FLOAT,
-                                    location         VARCHAR,
-                                    longitude        FLOAT,
-                                    artistName       VARCHAR,
-                                    duration         FLOAT,
-                                    numSongs         INTEGER,
-                                    songId           VARCHAR,
+                                  ( song_id           VARCHAR,
+                                    num_songs         INTEGER,
                                     title            VARCHAR,
-                                    year             INTEGER) 
+                                    artist_name       VARCHAR,
+                                    artist_latitude         FLOAT,
+                                    year             INTEGER,
+                                    duration         FLOAT,
+                                    artist_id         VARCHAR,                              
+                                    artist_longitude        FLOAT,
+                                    artist_location         VARCHAR) 
 """)
 
 staging_events_table_create = (""" CREATE TABLE IF NOT EXISTS staging_events_table
@@ -100,16 +101,15 @@ time_table_create = (""" CREATE TABLE IF NOT EXISTS time_table
 # STAGING TABLES
 
 staging_events_copy = (f"""
-                      copy staging_events_table from 's3://udacity-dend/log_data'
-                      credentials 'aws_iam_role=arn:aws:iam::353498158009:role/myRedshiftRole'
-                      compupdate off statupdate off
-                      region 'us-west-2' format as JSON 's3://udacity-dend/log_json_path.json'
-                      timeformat as 'epochmillisecs';
+                      copy staging_events_table from {config.get('S3','LOG_DATA')}
+                      credentials 'aws_iam_role={config.get('IAM_ROLE', 'ARN')}'
+                      JSON {config.get('S3','LOG_JSONPATH')}
+                      compupdate off region 'us-west-2';
                       """)
 
 staging_songs_copy = (f"""
-                     copy staging_songs_table from 's3://udacity-dend/song_data/A/A'
-                     credentials 'aws_iam_role=arn:aws:iam::353498158009:role/myRedshiftRole'
+                     copy staging_songs_table from {config.get('S3','SONG_DATA')}
+                     credentials 'aws_iam_role={config.get('IAM_ROLE', 'ARN')}'
                      JSON 'auto' 
                      compupdate off region 'us-west-2';
                      """)
@@ -120,15 +120,15 @@ songplay_table_insert = (""" INSERT INTO songplay_table (startTime, userId, leve
                          SELECT TIMESTAMP 'epoch' + (se.ts / 1000) * INTERVAL '1 second' AS startTime,
                                 se.userId,
                                 se.level,
-                                ss.songId,
-                                ss.artistId,
+                                ss.song_id,
+                                ss.artist_id,
                                 se.sessionid,
                                 se.location,
                                 se.userAgent
                            FROM staging_events_table se LEFT JOIN staging_songs_table ss 
-                             ON se.artistName = ss.artistName AND ss.title = se.song
+                             ON se.artistName = ss.artist_name AND ss.title = se.song
                            WHERE se.page = 'NextSong' 
-                             AND ss.songId IS NOT NULL 
+                             AND ss.song_id IS NOT NULL 
                              AND se.userId IS NOT NULL;""")
 
 user_table_insert = (""" INSERT INTO user_table (userId, firstName, lastName, gender, level)
@@ -142,24 +142,24 @@ user_table_insert = (""" INSERT INTO user_table (userId, firstName, lastName, ge
                         AND se.userId IS NOT NULL;""")
 
 song_table_insert = (""" INSERT INTO song_table (songId, title, artistId, year, duration)
-                     SELECT DISTINCT ss.songId,
+                     SELECT DISTINCT ss.song_id,
                             ss.title,
-                            ss.artistId,
+                            ss.artist_id,
                             ss.year,
                             ss.duration
                        FROM staging_songs_table ss
-                      WHERE ss.songId IS NOT NULL;""")
+                      WHERE ss.song_id IS NOT NULL;""")
 
 artist_table_insert = (""" INSERT INTO artist_table (artistId, artistName, location, latitude, longitude)
-                       SELECT DISTINCT ss.artistId,
-                              ss.artistName,
-                              ss.location, 
-                              ss.latitude,
-                              ss.longitude
+                       SELECT DISTINCT ss.artist_id,
+                              ss.artist_name,
+                              ss.artist_location, 
+                              ss.artist_latitude,
+                              ss.artist_longitude
                          FROM staging_songs_table ss
-                        WHERE ss.location  IS NOT NULL 
-                          AND ss.latitude  IS NOT NULL 
-                          AND ss.longitude IS NOT NULL;""")
+                        WHERE ss.artist_location  IS NOT NULL 
+                          AND ss.artist_latitude  IS NOT NULL 
+                          AND ss.artist_longitude IS NOT NULL;""")
 
 time_table_insert = (""" INSERT INTO time_table (startTime, hour, day, week, month, year, weekday)
                      SELECT start_time, 
